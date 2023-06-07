@@ -1,0 +1,6 @@
+__pycache__
+.vscode
+mypy.ini
+*.svg
+venv
+ideas_playground
