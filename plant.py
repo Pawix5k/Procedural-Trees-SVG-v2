@@ -31,8 +31,8 @@ class Branch:
         offset_left_bottom = (0.5 * Vector(-self.width_initial, 0)).rotate(self.angle)
         offset_left_top = (0.5 * Vector(-self.width_final, 0)).rotate(self.angle)
 
-        self.start_point_ = bottom
-        self.end_point_ = top
+        self.start_point_: Vector = bottom
+        self.end_point_: Vector = top
 
         p1 = bottom + offset_left_bottom
         p2 = top + offset_left_top
@@ -62,30 +62,28 @@ class Branch:
         sides_path_d = f"M{p1} Q{c1} {p2} M{p4} Q{c4} {p5}"
 
         beg = '<path d="'
-        end_outline = '" stroke-opacity="1" stroke="black" fill="none" stroke-width="16" stroke-linecap="square"/>'
+        end_outline = '" stroke-opacity="1" stroke="black"\
+            fill="none" stroke-width="16" stroke-linecap="square"/>'
         end_fill = (
             '" stroke="none" stroke-width="2" stroke-linecap="square" fill="#702f03"/>'
         )
-        end_sides_outline = '" stroke="#381700" stroke-width="4" stroke-linecap="square" fill="none"/>'
+        end_sides_outline = (
+            '" stroke="#381700" stroke-width="4" stroke-linecap="square" fill="none"/>'
+        )
         outline = beg + path_d + end_outline
 
         fill = beg + sides_path_d + end_sides_outline + beg + path_d + end_fill
         return outline, fill
 
 
-class Plant:
-    def __init__(self) -> None:
-        self.root_ = None
-
+class PlantConfig:
+    def __init__(self):
         self.length = 160.0
         self.length_delta = 0.7
 
         self.width = 40.0
         self.bulbousness = 1.0
 
-        # self.n_splits = 12
-        # self.n_offshoots = 5
-        # self.n_continues = 4
         self.n_splits = 31
         self.n_offshoots = 0
         self.n_continues = 0
@@ -93,11 +91,18 @@ class Plant:
         self.left_angle = Angle(-24.0)
         self.right_angle = Angle(24.0)
 
+
+class Plant:
+    def __init__(self, params: PlantConfig) -> None:
+        self.params = params
+        self.root_ = None
+
     def generate_plant(self):
         self.root_ = self.create_branch(Angle(0.0), None)
         self.update_params()
         current_leaves = [self.root_]
-        while self.n_splits + self.n_offshoots + self.n_continues >= len(
+
+        while self.params.n_splits + self.params.n_offshoots + self.params.n_continues >= len(
             current_leaves
         ):
             new_leaves = []
@@ -113,7 +118,7 @@ class Plant:
         root = self.root_
         bounding_box = [0.0, 0.0, 0.0, 0.0]
 
-        def add_path(node, start_point):
+        def add_path(node: Branch, start_point):
             outline, fill = node.get_svg_paths(start_point)
             bounding_box[0] = min(
                 bounding_box[0], node.start_point_.x, node.end_point_.x
@@ -148,22 +153,22 @@ class Plant:
 
         content = beg + "\n".join(outlines) + "\n".join(fills) + end
 
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf8") as f:
             f.writelines(content)
 
     def create_branch(self, angle, parent):
         return Branch(
-            self.length,
-            self.width,
-            self.width * self.length_delta,
+            self.params.length,
+            self.params.width,
+            self.params.width * self.params.length_delta,
             angle,
-            self.bulbousness,
+            self.params.bulbousness,
             parent,
         )
 
     def update_params(self):
-        self.length *= self.length_delta
-        self.width *= self.length_delta
+        self.params.length *= self.params.length_delta
+        self.params.width *= self.params.length_delta
 
     def choose_and_resolve_partition(self, parent):
         partition = self.choose_partition()
@@ -171,33 +176,33 @@ class Plant:
 
     # TODO: refactor that shit
     def choose_partition(self):
-        partitions = [self.n_splits, self.n_offshoots, self.n_continues]
+        partitions = [self.params.n_splits, self.params.n_offshoots, self.params.n_continues]
         accumulated_partitions = list(accumulate(partitions))
         i = random.randint(0, sum(partitions) - 1)
         if i < accumulated_partitions[0]:
-            self.n_splits -= 1
+            self.params.n_splits -= 1
             return Partition.SPLIT
         if i < accumulated_partitions[1]:
-            self.n_offshoots -= 1
+            self.params.n_offshoots -= 1
             return Partition.OFFSHOOT
         if i < accumulated_partitions[2]:
-            self.n_continues -= 1
+            self.params.n_continues -= 1
             return Partition.CONTINUE
 
-    def resolve_partition(self, parent, partition):
+    def resolve_partition(self, parent: Branch, partition):
         if partition == Partition.SPLIT:
-            left_child = self.create_branch(parent.angle + self.left_angle, parent)
-            right_child = self.create_branch(parent.angle + self.right_angle, parent)
+            left_child = self.create_branch(parent.angle + self.params.left_angle, parent)
+            right_child = self.create_branch(parent.angle + self.params.right_angle, parent)
             parent.children.extend([left_child, right_child])
         if partition == Partition.OFFSHOOT:
             if random.random() < 0.5:
-                left_child = self.create_branch(parent.angle + self.left_angle, parent)
+                left_child = self.create_branch(parent.angle + self.params.left_angle, parent)
                 right_child = self.create_branch(parent.angle, parent)
                 parent.children.extend([left_child, right_child])
             else:
                 left_child = self.create_branch(parent.angle, parent)
                 right_child = self.create_branch(
-                    parent.angle + self.right_angle, parent
+                    parent.angle + self.params.right_angle, parent
                 )
                 parent.children.extend([left_child, right_child])
         if partition == Partition.CONTINUE:
