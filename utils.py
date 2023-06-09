@@ -51,3 +51,7 @@ class Vector:
     
     def to_str(self) -> str:
         return f"{self.x:.2f} {self.y:.2f}"
+
+
+def point_to_str(point):
+    return " ".join(f"{coord:.2f}" for coord in point)
