@@ -176,7 +176,6 @@ def get_leaf_interpolation_proportions(x):
 
 def get_raw_leaf_points(x):
     proportions = get_leaf_interpolation_proportions(x)
-    print(proportions)
     if len(proportions) == 1:
         points = leaf_points[proportions[0][0]] * 1.0
     else:
@@ -204,3 +203,9 @@ def get_rotation_matrix(angle):
         ]
     )
 
+
+def get_point_at_quad_bez(p1, c, p2, t):
+    p3 = p1 + t * (c - p1)
+    p4 = c + t * (p2 - c)
+    result = p3 + t * (p4 - p3)
+    return result

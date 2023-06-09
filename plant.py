@@ -4,7 +4,7 @@ from itertools import accumulate
 
 import numpy as np
 
-from utils import Angle, point_to_str, get_raw_leaf_points, get_rotation_matrix
+from utils import Angle, point_to_str, get_raw_leaf_points, get_rotation_matrix, get_point_at_quad_bez
 
 
 class Partition(Enum):
@@ -19,7 +19,7 @@ class PlantConfig:
         self.length_delta = 0.7
 
         self.width = 30.0
-        self.bulbousness = 0.0
+        self.bulbousness = 1.0
 
         self.n_splits = 7
         self.n_offshoots = 0
@@ -28,18 +28,19 @@ class PlantConfig:
         self.left_angle = Angle(-24.0)
         self.right_angle = Angle(44.0)
 
-        self.growth_time = 1.0
+        self.growth_time = 2.0
 
         self.leaf_shape = 0.0
-        self.leaf_size = 39.0
+        self.leaf_size = 20.0
         self.leaf_angles = (Angle(-70.0), Angle(70.0))
-        self.leaf_start_at_x_branch = 0.4
+        self.leaf_start_at_x_branch = 0.7
         self.leaf_growth_time = 0.5
         self.leaf_placement = (
             ("l", 0.3),
+            ("r", 0.3),
             ("l", 0.5),
             ("r", 0.5),
-            ("l", 0.5),
+            ("l", 0.75),
             ("r", 0.75),
         )
 
@@ -67,6 +68,9 @@ class Branch:
 
         self.parent = parent
         self.children = []
+
+        self.is_leafed = False
+        self.is_leaf = False
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.length}, {self.width_initial}, {self.angle.value})"
@@ -144,11 +148,15 @@ class Branch:
                 / (1.0 - ini_placement)
             ) / branch_grown
 
-            print(f"{cur_leaf_placement=}")
+            p1 = points[0]
+            c = points[1]
+            p2 = points[2]
+            if side == "r":
+                p1 = points[8]
+                c = points[7]
+                p2 = points[6]
 
-            start_point = self.start_point_ + cur_leaf_placement * (
-                self.end_point_ - self.start_point_
-            )
+            start_point = get_point_at_quad_bez(p1, c, p2, cur_leaf_placement)
 
             shapes.append(
                 (
@@ -175,7 +183,6 @@ class Branch:
             angle = branch_angle + leaf_angles[0]
         else:
             angle = branch_angle + leaf_angles[1]
-        print(angle.value)
         points = points @ get_rotation_matrix(angle)
         points += start_point
         return points
@@ -206,7 +213,7 @@ class Branch:
     def get_cur_leaf_size(self, leaf_max_size, leaf_growth_time, alive_for):
         if alive_for >= leaf_growth_time:
             return leaf_max_size
-        return alive_for / leaf_growth_time * leaf_max_size
+        return (alive_for / leaf_growth_time) ** 0.5 * leaf_max_size
 
 
 class Plant:
