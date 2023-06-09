@@ -16,28 +16,29 @@ class Partition(Enum):
 class PlantConfig:
     def __init__(self):
         self.length = 160.0
-        self.length_delta = 0.7
+        self.length_delta = 0.77
 
         self.width = 30.0
         self.bulbousness = 1.0
 
-        self.n_splits = 7
+        self.n_splits = 2
         self.n_offshoots = 0
-        self.n_continues = 0
+        self.n_continues = 4
 
-        self.left_angle = Angle(-24.0)
+        self.left_angle = Angle(-34.0)
         self.right_angle = Angle(44.0)
 
         self.growth_time = 2.0
 
         self.leaf_shape = 0.0
-        self.leaf_size = 20.0
+        self.leaf_size = 27.0
+        self.petiola_length = 10.0
         self.leaf_angles = (Angle(-70.0), Angle(70.0))
         self.leaf_start_at_x_branch = 0.7
         self.leaf_growth_time = 0.5
         self.leaf_placement = (
-            ("l", 0.3),
-            ("r", 0.3),
+            ("l", 0.25),
+            ("r", 0.25),
             ("l", 0.5),
             ("r", 0.5),
             ("l", 0.75),
@@ -128,6 +129,9 @@ class Branch:
         shapes = [("branch", points)]
 
         # TODO: move
+        if not self.is_leafed:
+            return shapes
+        
         for leaf in params.leaf_placement:
             side, fin_placement = leaf
             leaf_alive_for = t - (
@@ -138,6 +142,9 @@ class Branch:
                 break
             leaf_cur_size = self.get_cur_leaf_size(
                 params.leaf_size, params.leaf_growth_time, leaf_alive_for
+            )
+            cur_petiola_length = self.get_cur_petiola_length(
+                params.petiola_length, params.leaf_growth_time, leaf_alive_for
             )
             ini_placement = fin_placement * params.leaf_start_at_x_branch
             branch_grown = cur_length / self.length
@@ -165,6 +172,7 @@ class Branch:
                         params.leaf_shape,
                         side,
                         leaf_cur_size,
+                        cur_petiola_length,
                         start_point,
                         params.leaf_angles,
                         self.angle,
@@ -175,15 +183,19 @@ class Branch:
         return shapes
 
     def get_leaf_points(
-        self, shape, side, cur_size, start_point, leaf_angles, branch_angle
+        self, shape, side, cur_size, cur_petiola_length, start_point, leaf_angles, branch_angle
     ):
         points = get_raw_leaf_points(shape)
         points *= cur_size
+        points += np.array([0.0, -cur_petiola_length])
         if side == "l":
             angle = branch_angle + leaf_angles[0]
         else:
             angle = branch_angle + leaf_angles[1]
         points = points @ get_rotation_matrix(angle)
+        points = np.append(points, np.array([[0.0, 0.0]]), axis=0)
+        # points = np.concatenate((np.array([[0.0, 0.0]]), points, np.array([[0.0, 0.0]])), axis=0)
+        print(points)
         points += start_point
         return points
 
@@ -214,6 +226,11 @@ class Branch:
         if alive_for >= leaf_growth_time:
             return leaf_max_size
         return (alive_for / leaf_growth_time) ** 0.5 * leaf_max_size
+    
+    def get_cur_petiola_length(self, petiola_max_length, leaf_growth_time, alive_for):
+        if alive_for >= leaf_growth_time:
+            return petiola_max_length
+        return (alive_for / leaf_growth_time) ** 0.5 * petiola_max_length
 
 
 class Plant:
@@ -236,6 +253,9 @@ class Plant:
                 new_leaves.extend(leaf.children)
             current_leaves = new_leaves
             self.update_params()
+        
+        for branch in current_leaves:
+            branch.is_leafed = True
 
     def draw_plant(self, file_path, t):
         shapes = []
@@ -286,24 +306,24 @@ class Plant:
             stroke = (
                 '<path d="'
                 + path_d
-                + '" stroke-opacity="1" stroke="black" fill="none" stroke-width="16" stroke-linecap="square"/>'
+                + '" stroke-opacity="1" stroke="black" fill="none" stroke-width="16" stroke-linecap="square"/>\n'
             )
             fill = (
                 '<path d="'
                 + path_d
-                + '" stroke="none" stroke-width="2" stroke-linecap="square" fill="#702f03"/>'
+                + '" stroke="black" stroke-width="2" stroke-linecap="square" fill="#702f03"/>\n'
             )
         elif shape_type == "leaf":
             path_d = path_d = " ".join(point_to_str(p, ",") for p in points)
             stroke = (
                 '<polygon points="'
                 + path_d
-                + '" stroke-opacity="1" stroke="black" fill="none" stroke-width="16" stroke-linejoin="round"/>'
+                + 'Z" stroke-opacity="1" stroke="black" fill="none" stroke-width="16" stroke-linejoin="round"/>'
             )
             fill = (
                 '<polygon points="'
                 + path_d
-                + '" stroke="#095721" stroke-width="2" stroke-linecap="square" fill="green"/>'
+                + 'Z" stroke="#095721" stroke-width="2" stroke-linecap="square" fill="green"/>'
             )
 
         return stroke, fill
